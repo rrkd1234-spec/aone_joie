@@ -1,0 +1,882 @@
+bash
+
+cat > /mnt/user-data/outputs/joie_monitor.html << 'HTMLEOF'
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Joie Korea — 경쟁사 모니터링</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+<style>
+:root{
+  --bg:#0E0F11;
+  --bg2:#141518;
+  --bg3:#1A1C20;
+  --bg4:#22252B;
+  --border:#2A2D34;
+  --border2:#363A42;
+  --text:#F0F1F3;
+  --text2:#9DA3AE;
+  --text3:#626874;
+  --joie:#2ECC9A;
+  --joie2:#1D9E75;
+  --joie-bg:rgba(46,204,154,.1);
+  --red:#E8544A;
+  --blue:#4B8EF1;
+  --amber:#F0A93A;
+  --purple:#9B7FE8;
+  --green:#5DBB63;
+  --r:10px;
+  --r2:6px;
+  --font:'DM Sans',sans-serif;
+  --mono:'DM Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ── Layout ── */
+.shell{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:220px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0}
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+
+/* ── Sidebar ── */
+.sb-logo{padding:20px 18px 16px;border-bottom:1px solid var(--border)}
+.sb-logo-badge{display:inline-flex;align-items:center;gap:7px}
+.sb-logo-dot{width:28px;height:28px;border-radius:7px;background:var(--joie);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#000;letter-spacing:-.5px}
+.sb-logo-name{font-size:13px;font-weight:500;color:var(--text);letter-spacing:-.2px}
+.sb-logo-sub{font-size:10px;color:var(--text3);margin-top:1px}
+.sb-section{padding:12px 10px 6px;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.08em}
+.sb-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r2);margin:1px 8px;cursor:pointer;color:var(--text2);font-size:13px;transition:.12s;border:none;background:none;width:calc(100% - 16px);text-align:left}
+.sb-item:hover{background:var(--bg3);color:var(--text)}
+.sb-item.on{background:var(--bg4);color:var(--text);font-weight:500}
+.sb-item svg{width:15px;height:15px;flex-shrink:0;opacity:.7}
+.sb-item.on svg{opacity:1}
+.sb-bottom{margin-top:auto;padding:12px;border-top:1px solid var(--border)}
+.sb-date-pill{background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:5px 10px;font-size:11px;color:var(--text3);display:flex;align-items:center;gap:5px;cursor:default}
+.sb-date-live{width:6px;height:6px;border-radius:50%;background:var(--joie);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── Top bar ── */
+.topbar{padding:16px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--bg)}
+.topbar-title{font-size:16px;font-weight:500;color:var(--text);letter-spacing:-.3px}
+.topbar-sub{font-size:12px;color:var(--text3);margin-top:1px}
+.topbar-right{display:flex;align-items:center;gap:8px}
+
+/* ── Date bar ── */
+.datebar{padding:10px 24px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0}
+.datebar-label{font-size:11px;color:var(--text3);white-space:nowrap;display:flex;align-items:center;gap:5px}
+.date-chips{display:flex;gap:4px;flex-wrap:wrap}
+.dchip{padding:4px 10px;border-radius:20px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--text3);transition:.12s;white-space:nowrap}
+.dchip:hover{border-color:var(--border2);color:var(--text2)}
+.dchip.on{border-color:var(--joie2);background:var(--joie-bg);color:var(--joie);font-weight:500}
+.date-range{display:none;align-items:center;gap:6px;margin-left:4px}
+.date-range.show{display:flex}
+.date-range input[type=date]{padding:4px 8px;border:1px solid var(--border);border-radius:var(--r2);background:var(--bg3);color:var(--text);font-size:11px;font-family:var(--font);outline:none}
+.date-range input[type=date]:focus{border-color:var(--joie2)}
+.date-badge{margin-left:auto;font-size:11px;color:var(--text3);font-family:var(--mono);white-space:nowrap}
+
+/* ── Content ── */
+.content{padding:24px;flex:1}
+
+/* ── Panels ── */
+.panel{display:none}.panel.on{display:block}
+
+/* ── Cards ── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-bottom:12px}
+.card-title{font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.card-title svg{width:13px;height:13px;opacity:.7}
+
+/* ── Grid helpers ── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.gf{margin-bottom:10px}
+
+/* ── Form elements ── */
+.fg{display:flex;flex-direction:column;gap:4px}
+.fl{font-size:11px;color:var(--text3)}
+.fi{padding:8px 10px;border:1px solid var(--border);border-radius:var(--r2);background:var(--bg3);color:var(--text);font-size:13px;font-family:var(--font);width:100%;transition:.12s}
+.fi:focus{outline:none;border-color:var(--joie2)}
+.fi::placeholder{color:var(--text3)}
+textarea.fi{resize:vertical}
+select.fi option{background:var(--bg3)}
+
+/* ── Buttons ── */
+.btn-primary{padding:9px 0;width:100%;border-radius:var(--r2);font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--joie2);background:var(--joie-bg);color:var(--joie);display:flex;align-items:center;justify-content:center;gap:6px;transition:.12s;font-family:var(--font)}
+.btn-primary:hover{background:rgba(46,204,154,.18)}
+.btn-primary:disabled{opacity:.35;cursor:not-allowed}
+.btn-sm{padding:5px 10px;border-radius:var(--r2);font-size:12px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--text3);transition:.12s;font-family:var(--font)}
+.btn-sm:hover{border-color:var(--border2);color:var(--text)}
+
+/* ── Tags / badges ── */
+.bdg{display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:500}
+.bdg-h{background:rgba(93,187,99,.15);color:#5DBB63}
+.bdg-m{background:rgba(240,169,58,.15);color:#F0A93A}
+.bdg-l{background:rgba(158,163,174,.12);color:#9DA3AE}
+.bdg-joie{background:rgba(46,204,154,.15);color:var(--joie)}
+.bdg-red{background:rgba(232,84,74,.15);color:var(--red)}
+
+/* ── Line tabs ── */
+.line-tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px}
+.lt{padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--text3);transition:.12s;font-family:var(--font)}
+.lt:hover{border-color:var(--border2);color:var(--text2)}
+.lt.on{color:var(--text);font-weight:500}
+.lt[data-line=all].on{border-color:var(--text3);background:rgba(158,163,174,.1)}
+.lt[data-line=convertible].on{border-color:var(--blue);background:rgba(75,142,241,.12);color:var(--blue)}
+.lt[data-line=toddler].on{border-color:var(--green);background:rgba(93,187,99,.12);color:var(--green)}
+.lt[data-line=junior].on{border-color:var(--amber);background:rgba(240,169,58,.12);color:var(--amber)}
+.lt[data-line=allinone].on{border-color:var(--purple);background:rgba(155,127,232,.12);color:var(--purple)}
+
+/* ── Product chips ── */
+.prod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:5px;margin-bottom:12px}
+.pc{display:flex;align-items:center;gap:7px;padding:6px 10px;border-radius:var(--r2);border:1px solid var(--border);background:none;cursor:pointer;font-size:12px;color:var(--text3);transition:.12s;font-family:var(--font);text-align:left}
+.pc:hover{border-color:var(--border2);color:var(--text2)}
+.pc.on{border-color:var(--border2);background:var(--bg3);color:var(--text)}
+.pc-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.joie-tag{font-size:9px;padding:1px 4px;border-radius:3px;background:var(--joie-bg);color:var(--joie);margin-left:2px;flex-shrink:0}
+
+/* ── API keys ── */
+.key-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px}
+
+/* ── Loading ── */
+.loading{display:none;align-items:center;gap:8px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);font-size:12px;color:var(--text3);margin-bottom:12px}
+.loading.on{display:flex}
+.dot{display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--joie);animation:bl 1s infinite}
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes bl{0%,80%,100%{opacity:.2}40%{opacity:1}}
+
+/* ── KW Table ── */
+.tbl-wrap{overflow-x:auto}
+.kw-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.kw-tbl th{font-size:10px;font-weight:500;color:var(--text3);text-align:left;padding:7px 8px;border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:.05em}
+.kw-tbl td{padding:8px 8px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.kw-tbl tr:last-child td{border-bottom:none}
+.kw-tbl tr:hover td{background:var(--bg3)}
+.bar-m{height:3px;border-radius:2px;background:var(--bg4);overflow:hidden;margin-top:4px}
+.bar-mf{height:100%;border-radius:2px}
+
+/* ── Summary cards ── */
+.sc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:14px}
+.sc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
+.sc-v{font-size:24px;font-weight:500;color:var(--text);font-family:var(--mono);letter-spacing:-1px;margin-bottom:2px}
+.sc-v.joie-col{color:var(--joie)}
+.sc-l{font-size:11px;color:var(--text3)}
+
+/* ── Mode pills ── */
+.mode-pills{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px}
+.mp{padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--text3);transition:.12s;font-family:var(--font)}
+.mp:hover{border-color:var(--border2);color:var(--text2)}
+.mp.on{border-color:var(--joie2);background:var(--joie-bg);color:var(--joie);font-weight:500}
+
+/* ── AI result ── */
+.ai-result{display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.ai-result-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.ai-result-label{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.ai-result-content{font-size:13px;color:var(--text2);line-height:1.8;white-space:pre-wrap;font-family:var(--font)}
+
+/* ── Insight box ── */
+.insight-box{display:none;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-top:10px;font-size:12px;color:var(--text2);line-height:1.8;white-space:pre-wrap;font-family:var(--mono)}
+
+/* ── Guide steps ── */
+.step{display:flex;gap:12px;align-items:flex-start;margin-bottom:10px}
+.step-n{width:22px;height:22px;border-radius:50%;background:var(--bg3);border:1px solid var(--border);font-size:11px;font-weight:500;color:var(--text3);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-family:var(--mono)}
+.step-t{font-size:13px;color:var(--text2);line-height:1.6}
+.step-t b{color:var(--text)}
+.step-t a{color:var(--joie);text-decoration:none}
+.step-t a:hover{text-decoration:underline}
+
+/* ── Key saved indicator ── */
+.key-ok{font-size:11px;color:var(--joie);display:none;align-items:center;gap:4px}
+.key-ok.show{display:flex}
+
+/* ── Row actions ── */
+.row-actions{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+
+/* ── Scrollbar for main ── */
+.main::-webkit-scrollbar{width:3px}
+
+/* ── Responsive ── */
+@media(max-width:700px){
+  .sidebar{display:none}
+  .key-row{grid-template-columns:1fr}
+  .g2,.g3,.g4{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-badge">
+      <div class="sb-logo-dot">J</div>
+      <div>
+        <div class="sb-logo-name">Joie Korea</div>
+        <div class="sb-logo-sub">경쟁사 모니터링</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sb-section">메뉴</div>
+  <button class="sb-item on" onclick="switchPanel('keyword',this)" data-panel="keyword">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h18M3 6h18M3 18h12"/></svg>
+    키워드 검색량
+  </button>
+  <button class="sb-item" onclick="switchPanel('analysis',this)" data-panel="analysis">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+    AI 자동 분석
+  </button>
+  <button class="sb-item" onclick="switchPanel('guide',this)" data-panel="guide">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    API 발급 안내
+  </button>
+
+  <div class="sb-section" style="margin-top:8px">경쟁사</div>
+  <div style="padding:0 10px 4px">
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <div style="display:flex;align-items:center;gap:7px;padding:5px 8px;font-size:12px;color:var(--text3)"><span style="width:7px;height:7px;border-radius:50%;background:#E8544A;flex-shrink:0;display:inline-block"></span>브라이텍스</div>
+      <div style="display:flex;align-items:center;gap:7px;padding:5px 8px;font-size:12px;color:var(--text3)"><span style="width:7px;height:7px;border-radius:50%;background:#4B8EF1;flex-shrink:0;display:inline-block"></span>싸이벡스</div>
+      <div style="display:flex;align-items:center;gap:7px;padding:5px 8px;font-size:12px;color:var(--text3)"><span style="width:7px;height:7px;border-radius:50%;background:#5DBB63;flex-shrink:0;display:inline-block"></span>다이치</div>
+      <div style="display:flex;align-items:center;gap:7px;padding:5px 8px;font-size:12px;color:var(--text3)"><span style="width:7px;height:7px;border-radius:50%;background:#F0A93A;flex-shrink:0;display:inline-block"></span>시크</div>
+      <div style="display:flex;align-items:center;gap:7px;padding:5px 8px;font-size:12px;color:var(--text3)"><span style="width:7px;height:7px;border-radius:50%;background:#9B7FE8;flex-shrink:0;display:inline-block"></span>맥시코시</div>
+      <div style="display:flex;align-items:center;gap:7px;padding:5px 8px;font-size:12px;color:var(--text3)"><span style="width:7px;height:7px;border-radius:50%;background:#888780;flex-shrink:0;display:inline-block"></span>순성</div>
+    </div>
+  </div>
+
+  <div class="sb-bottom">
+    <div class="sb-date-pill">
+      <div class="sb-date-live"></div>
+      <span id="sb-date-txt">오늘</span>
+    </div>
+  </div>
+</nav>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="topbar-title">키워드 검색량</div>
+      <div class="topbar-sub" id="topbar-sub">카시트 라인별 네이버 월간 검색량 조회</div>
+    </div>
+    <div class="topbar-right">
+      <span id="key-ok" class="key-ok">✓ API 키 저장됨</span>
+    </div>
+  </div>
+
+  <!-- Date bar -->
+  <div class="datebar">
+    <span class="datebar-label">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      기준일
+    </span>
+    <div class="date-chips">
+      <button class="dchip on" onclick="setDate('today',this)">오늘</button>
+      <button class="dchip" onclick="setDate('yesterday',this)">어제</button>
+      <button class="dchip" onclick="setDate('week',this)">이번 주</button>
+      <button class="dchip" onclick="setDate('lastweek',this)">지난 주</button>
+      <button class="dchip" onclick="setDate('month',this)">이번 달</button>
+      <button class="dchip" onclick="setDate('lastmonth',this)">지난 달</button>
+      <button class="dchip" onclick="setDate('custom',this)">직접 선택</button>
+    </div>
+    <div class="date-range" id="date-range">
+      <input type="date" id="date-from" onchange="updateCustom()">
+      <span style="font-size:11px;color:var(--text3)">~</span>
+      <input type="date" id="date-to" onchange="updateCustom()">
+    </div>
+    <span class="date-badge" id="date-badge"></span>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- PANEL: 키워드 검색량 -->
+    <div class="panel on" id="panel-keyword">
+
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          네이버 검색광고 API 인증
+        </div>
+        <div class="key-row">
+          <div class="fg"><span class="fl">Customer ID</span><input class="fi" type="password" id="nv-cid" placeholder="숫자 ID (7~10자리)"></div>
+          <div class="fg"><span class="fl">Access License</span><input class="fi" type="password" id="nv-key" placeholder="엑세스 라이선스"></div>
+          <div class="fg"><span class="fl">Secret Key</span><input class="fi" type="password" id="nv-secret" placeholder="비밀키"></div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn-sm" onclick="saveKeys()">저장</button>
+          <button class="btn-sm" onclick="clearKeys()">초기화</button>
+          <span style="font-size:11px;color:var(--text3)">API 키가 없으면 샘플 데이터로 시연됩니다 →
+            <button class="btn-sm" onclick="switchPanel('guide',document.querySelector('[data-panel=guide]'))" style="font-size:11px;padding:2px 7px">발급 안내</button>
+          </span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h7"/></svg>
+          카시트 라인 & 제품 선택
+        </div>
+        <div class="line-tabs">
+          <button class="lt on" data-line="all" onclick="switchLine('all',this)">전체</button>
+          <button class="lt" data-line="convertible" onclick="switchLine('convertible',this)">컨버터블</button>
+          <button class="lt" data-line="toddler" onclick="switchLine('toddler',this)">토들러</button>
+          <button class="lt" data-line="junior" onclick="switchLine('junior',this)">주니어</button>
+          <button class="lt" data-line="allinone" onclick="switchLine('allinone',this)">올인원</button>
+        </div>
+        <div class="prod-grid" id="prod-grid"></div>
+        <div class="g2">
+          <div class="fg"><span class="fl">추가 키워드 직접 입력 (쉼표 구분)</span><input class="fi" type="text" id="kw-extra" placeholder="예: 카시트 추천, 신생아 카시트, 회전형 카시트"></div>
+          <div class="fg"><span class="fl">조회 방식</span>
+            <select class="fi" id="kw-detail">
+              <option value="1">상세 조회 — PC + 모바일 분리</option>
+              <option value="0">기본 조회 — 합산만</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-primary" id="kw-btn" onclick="fetchKw()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          검색량 조회하기
+        </button>
+      </div>
+
+      <div class="loading" id="kw-loading">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span id="kw-loading-txt">조회 중...</span>
+      </div>
+
+      <div id="kw-result" style="display:none">
+        <div class="sc-grid" id="sc-grid"></div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+            <div class="card-title" style="margin-bottom:0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+              검색량 결과 <span id="result-meta" style="font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3)"></span>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn-sm" onclick="copyCSV()">CSV 복사</button>
+              <button class="btn-sm" onclick="sendToAI()">AI 분석으로 보내기 →</button>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table class="kw-tbl">
+              <thead><tr>
+                <th>제품 / 키워드</th><th>라인</th>
+                <th style="text-align:right">PC 월간</th>
+                <th style="text-align:right">모바일 월간</th>
+                <th style="text-align:right">합계</th>
+                <th>볼륨</th><th>브랜드</th>
+              </tr></thead>
+              <tbody id="kw-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="insight-box" id="insight-box"></div>
+      </div>
+    </div>
+
+    <!-- PANEL: AI 자동 분석 -->
+    <div class="panel" id="panel-analysis">
+      <div class="mode-pills">
+        <button class="mp on" onclick="selMode(this,'weekly')">주간 동향</button>
+        <button class="mp" onclick="selMode(this,'line')">라인별 경쟁</button>
+        <button class="mp" onclick="selMode(this,'keyword')">키워드 전략</button>
+        <button class="mp" onclick="selMode(this,'newproduct')">신제품 대응</button>
+        <button class="mp" onclick="selMode(this,'promo')">프로모션 분석</button>
+        <button class="mp" onclick="selMode(this,'sns')">SNS 전략</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          수집 정보 입력
+        </div>
+        <div class="row-actions">
+          <button class="btn-sm" onclick="fillSample()">샘플 데이터 불러오기</button>
+          <button class="btn-sm" onclick="pasteKw()">키워드 탭 데이터 가져오기</button>
+          <button class="btn-sm" onclick="clearAI()">초기화</button>
+        </div>
+        <div class="gf">
+          <div class="fg">
+            <span class="fl">경쟁사 수집 정보 (신제품 · 프로모션 · SNS · 검색량 등 자유 입력)</span>
+            <textarea class="fi" id="ai-input" rows="9" placeholder="수집한 정보를 입력하거나 위 '샘플 데이터' 버튼을 눌러보세요."></textarea>
+          </div>
+        </div>
+        <div class="g2">
+          <div class="fg">
+            <span class="fl">분석 기준 기간 <span style="color:var(--joie)">(날짜 바에서 자동 반영)</span></span>
+            <input class="fi" type="text" id="ai-date" readonly style="background:var(--bg4);cursor:default;color:var(--text3)">
+          </div>
+          <div class="fg">
+            <span class="fl">추가 포커스 (선택)</span>
+            <input class="fi" type="text" id="ai-focus" placeholder="예: 컨버터블 카시트 카테고리 중심으로">
+          </div>
+        </div>
+        <button class="btn-primary" id="ai-btn" onclick="runAI()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Claude AI로 분석 시작
+        </button>
+
+        <div class="loading" id="ai-loading" style="margin-top:12px;margin-bottom:0">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span id="ai-loading-txt">분석 리포트 작성 중...</span>
+        </div>
+
+        <div class="ai-result" id="ai-result">
+          <div class="ai-result-header">
+            <span class="ai-result-label" id="ai-res-label">분석 결과</span>
+            <span class="ai-result-label" id="ai-res-time"></span>
+          </div>
+          <div class="ai-result-content" id="ai-res-content"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL: API 발급 안내 -->
+    <div class="panel" id="panel-guide">
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          네이버 검색광고 API 키 발급 (무료 · 약 5분)
+        </div>
+        <div class="step"><div class="step-n">1</div><div class="step-t"><b>네이버 검색광고 접속</b> — <a href="https://searchad.naver.com" target="_blank">searchad.naver.com</a> 에 로그인합니다. 광고 계정이 없으면 무료로 생성하세요.</div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-t"><b>API 사용 신청</b> — 상단 메뉴 <b>도구 → API 사용관리</b> → "네이버 검색광고 API 서비스 신청" 버튼 클릭</div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-t"><b>3가지 키 확인</b> — Customer ID (고객 ID), Access License (엑세스 라이선스), Secret Key (비밀키) 를 복사합니다.</div></div>
+        <div class="step"><div class="step-n">4</div><div class="step-t"><b>앱에 입력</b> — "키워드 검색량" 탭 상단 인증 정보 영역에 3가지 키를 입력하고 <b>저장</b> 버튼을 클릭합니다.</div></div>
+        <div style="padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);font-size:12px;color:var(--text3);margin-top:4px;line-height:1.7">
+          <b style="color:var(--amber)">⚠ CORS 안내</b> — 브라우저 보안 정책상 네이버 API 직접 호출이 제한됩니다. API 키 입력 시 Python 스크립트 코드가 자동 생성되며, 로컬에서 실행 후 결과를 AI 분석 탭에 붙여넣는 방식으로 사용할 수 있습니다.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          Python 자동화 스크립트 생성
+        </div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:10px;line-height:1.7">API 키 입력 후 아래 버튼을 누르면 완성된 Python 스크립트가 생성됩니다. 로컬에서 실행하면 카시트 라인별 검색량 데이터를 CSV로 저장합니다.</div>
+        <button class="btn-sm" onclick="genPython()">Python 스크립트 생성</button>
+        <pre id="python-code" style="display:none;margin-top:12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:14px;font-size:11px;font-family:var(--mono);color:var(--text2);overflow-x:auto;white-space:pre;line-height:1.7"></pre>
+        <button id="py-copy-btn" style="display:none;margin-top:8px" class="btn-sm" onclick="copyPython()">코드 복사</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          등록된 카시트 라인별 키워드 전체 목록
+        </div>
+        <div class="tbl-wrap" id="guide-table"></div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+/* ─────────────────────────────────────────
+   DATA
+───────────────────────────────────────── */
+const LINES = {
+  convertible:{label:'컨버터블',color:'#4B8EF1',products:[
+    {name:'조이 아이스핀360',brand:'조이',joie:true},
+    {name:'싸이벡스 제로나T',brand:'싸이벡스',joie:false},
+    {name:'다이치 원픽스360',brand:'다이치',joie:false},
+    {name:'브라이텍스 듀얼픽스',brand:'브라이텍스',joie:false},
+    {name:'순성 우노에어',brand:'순성',joie:false}
+  ]},
+  toddler:{label:'토들러',color:'#5DBB63',products:[
+    {name:'조이 아이어바나',brand:'조이',joie:true},
+    {name:'브라이텍스 어드밴스픽스',brand:'브라이텍스',joie:false},
+    {name:'시크 맥스아이보스',brand:'시크',joie:false},
+    {name:'맥시코시 타이탄 프로',brand:'맥시코시',joie:false},
+    {name:'다이치 브이가드',brand:'다이치',joie:false},
+    {name:'순성 브릭프로',brand:'순성',joie:false}
+  ]},
+  junior:{label:'주니어',color:'#F0A93A',products:[
+    {name:'조이 아이트래버',brand:'조이',joie:true},
+    {name:'조이 듀알로',brand:'조이',joie:true},
+    {name:'순성 제나주니어',brand:'순성',joie:false},
+    {name:'브라이텍스 키드픽스',brand:'브라이텍스',joie:false},
+    {name:'시크 맥스아이진2',brand:'시크',joie:false},
+    {name:'싸이벡스 솔루션T',brand:'싸이벡스',joie:false}
+  ]},
+  allinone:{label:'올인원',color:'#9B7FE8',products:[
+    {name:'조이 아이피벗그로우',brand:'조이',joie:true},
+    {name:'시크 제로맥스360',brand:'시크',joie:false},
+    {name:'다이치 블리바360',brand:'다이치',joie:false},
+    {name:'다이치 트웰브360i',brand:'다이치',joie:false},
+    {name:'다이치 올인원360',brand:'다이치',joie:false},
+    {name:'순성 우노 올인원',brand:'순성',joie:false},
+    {name:'ABC디자인 버디',brand:'ABC디자인',joie:false}
+  ]}
+};
+const BC={'조이':'#2ECC9A','싸이벡스':'#4B8EF1','다이치':'#5DBB63','브라이텍스':'#E8544A','시크':'#F0A93A','맥시코시':'#9B7FE8','순성':'#888780','ABC디자인':'#D85A30'};
+const SPC={'조이 아이스핀360':820,'싸이벡스 제로나T':2100,'다이치 원픽스360':3400,'브라이텍스 듀얼픽스':1800,'순성 우노에어':420,'조이 아이어바나':310,'브라이텍스 어드밴스픽스':680,'시크 맥스아이보스':540,'맥시코시 타이탄 프로':920,'다이치 브이가드':1200,'순성 브릭프로':280,'조이 아이트래버':190,'조이 듀알로':250,'순성 제나주니어':180,'브라이텍스 키드픽스':760,'시크 맥스아이진2':430,'싸이벡스 솔루션T':1100,'조이 아이피벗그로우':580,'시크 제로맥스360':1600,'다이치 블리바360':890,'다이치 트웰브360i':720,'다이치 올인원360':1100,'순성 우노 올인원':340,'ABC디자인 버디':210};
+const SMB={'조이 아이스핀360':4200,'싸이벡스 제로나T':11800,'다이치 원픽스360':22400,'브라이텍스 듀얼픽스':9600,'순성 우노에어':2100,'조이 아이어바나':1600,'브라이텍스 어드밴스픽스':3800,'시크 맥스아이보스':2900,'맥시코시 타이탄 프로':5100,'다이치 브이가드':7200,'순성 브릭프로':1400,'조이 아이트래버':980,'조이 듀알로':1300,'순성 제나주니어':920,'브라이텍스 키드픽스':4100,'시크 맥스아이진2':2400,'싸이벡스 솔루션T':6200,'조이 아이피벗그로우':3100,'시크 제로맥스360':9200,'다이치 블리바360':4800,'다이치 트웰브360i':3900,'다이치 올인원360':6100,'순성 우노 올인원':1800,'ABC디자인 버디':1100};
+
+/* ─────────────────────────────────────────
+   STATE
+───────────────────────────────────────── */
+let curLine='all', selected=new Set(), kwForAI='', csvRows=[], curMode='weekly', dateLabel='';
+
+/* ─────────────────────────────────────────
+   INIT
+───────────────────────────────────────── */
+(function(){
+  const today=new Date();
+  document.getElementById('date-from').value=fmtISO(today);
+  document.getElementById('date-to').value=fmtISO(today);
+  setDate('today',document.querySelector('.dchip.on'));
+  loadKeys();
+  renderProds('all');
+  buildGuideTable();
+})();
+
+/* ─────────────────────────────────────────
+   NAVIGATION
+───────────────────────────────────────── */
+const PANEL_META={
+  keyword:{title:'키워드 검색량',sub:'카시트 라인별 네이버 월간 검색량 조회'},
+  analysis:{title:'AI 자동 분석',sub:'Claude AI가 경쟁사 데이터를 분석하고 전략을 제안합니다'},
+  guide:{title:'API 발급 안내',sub:'네이버 검색광고 API 키 발급 방법 및 Python 스크립트'}
+};
+function switchPanel(id,el){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.sb-item').forEach(b=>b.classList.remove('on'));
+  document.getElementById('panel-'+id).classList.add('on');
+  el.classList.add('on');
+  document.getElementById('topbar-title').textContent=PANEL_META[id].title;
+  document.getElementById('topbar-sub').textContent=PANEL_META[id].sub;
+}
+
+/* ─────────────────────────────────────────
+   DATE
+───────────────────────────────────────── */
+function fmt(d){return d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일';}
+function fmtISO(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function weekRange(off){const d=new Date();d.setDate(d.getDate()-d.getDay()+1+off*7);const e=new Date(d);e.setDate(d.getDate()+6);return{s:d,e};}
+function monthRange(off){const s=new Date();s.setDate(1);s.setMonth(s.getMonth()+off);const e=new Date(s.getFullYear(),s.getMonth()+1,0);return{s,e};}
+
+function setDate(preset,el){
+  document.querySelectorAll('.dchip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  const dr=document.getElementById('date-range');
+  dr.classList.toggle('show',preset==='custom');
+  const today=new Date(); let label='';
+  if(preset==='today')label=fmt(today);
+  else if(preset==='yesterday'){const y=new Date(today);y.setDate(y.getDate()-1);label=fmt(y);}
+  else if(preset==='week'){const r=weekRange(0);label=fmt(r.s)+' ~ '+fmt(r.e);}
+  else if(preset==='lastweek'){const r=weekRange(-1);label=fmt(r.s)+' ~ '+fmt(r.e);}
+  else if(preset==='month'){const r=monthRange(0);label=fmt(r.s)+' ~ '+fmt(r.e);}
+  else if(preset==='lastmonth'){const r=monthRange(-1);label=fmt(r.s)+' ~ '+fmt(r.e);}
+  else if(preset==='custom'){
+    const f=document.getElementById('date-from').value,t=document.getElementById('date-to').value;
+    label=f&&t?f.replace(/-/g,'.')+' ~ '+t.replace(/-/g,'.'):'날짜를 선택하세요';
+  }
+  dateLabel=label;
+  document.getElementById('date-badge').textContent=label;
+  document.getElementById('ai-date').value=label;
+  document.getElementById('sb-date-txt').textContent=label.length>12?label.substring(0,12)+'…':label;
+}
+function updateCustom(){
+  const f=document.getElementById('date-from').value,t=document.getElementById('date-to').value;
+  if(f&&t){dateLabel=f.replace(/-/g,'.')+' ~ '+t.replace(/-/g,'.');document.getElementById('date-badge').textContent=dateLabel;document.getElementById('ai-date').value=dateLabel;document.getElementById('sb-date-txt').textContent=dateLabel.substring(0,12)+'…';}
+}
+
+/* ─────────────────────────────────────────
+   API KEYS
+───────────────────────────────────────── */
+function saveKeys(){
+  sessionStorage.setItem('nv_cid',document.getElementById('nv-cid').value);
+  sessionStorage.setItem('nv_key',document.getElementById('nv-key').value);
+  sessionStorage.setItem('nv_secret',document.getElementById('nv-secret').value);
+  const el=document.getElementById('key-ok');
+  el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2500);
+}
+function clearKeys(){
+  ['nv-cid','nv-key','nv-secret'].forEach(id=>document.getElementById(id).value='');
+  ['nv_cid','nv_key','nv_secret'].forEach(k=>sessionStorage.removeItem(k));
+}
+function loadKeys(){
+  const cid=sessionStorage.getItem('nv_cid'),key=sessionStorage.getItem('nv_key'),sec=sessionStorage.getItem('nv_secret');
+  if(cid)document.getElementById('nv-cid').value=cid;
+  if(key)document.getElementById('nv-key').value=key;
+  if(sec)document.getElementById('nv-secret').value=sec;
+  if(cid&&key&&sec)document.getElementById('key-ok').classList.add('show');
+}
+
+/* ─────────────────────────────────────────
+   PRODUCTS
+───────────────────────────────────────── */
+function renderProds(line){
+  let prods=[];
+  if(line==='all') Object.keys(LINES).forEach(k=>LINES[k].products.forEach(p=>prods.push({...p,line:k})));
+  else prods=LINES[line].products.map(p=>({...p,line}));
+  selected.clear(); prods.forEach(p=>selected.add(p.name));
+  document.getElementById('prod-grid').innerHTML=prods.map(p=>{
+    const c=BC[p.brand]||'#888';
+    return `<button class="pc on" onclick="toggleProd(this,'${p.name.replace(/'/g,"\\'")}')"><span class="pc-dot" style="background:${c}"></span><span style="flex:1;text-align:left;line-height:1.3">${p.name}${p.joie?'<span class="joie-tag">조이</span>':''}</span></button>`;
+  }).join('');
+}
+function toggleProd(el,name){el.classList.toggle('on');selected[el.classList.contains('on')?'add':'delete'](name);}
+function switchLine(line,el){
+  curLine=line;
+  document.querySelectorAll('.lt').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  renderProds(line);
+}
+
+/* ─────────────────────────────────────────
+   FETCH KEYWORDS
+───────────────────────────────────────── */
+async function fetchKw(){
+  let kws=[...selected];
+  const extra=document.getElementById('kw-extra').value.trim();
+  if(extra) extra.split(',').map(s=>s.trim()).filter(Boolean).forEach(k=>kws.push(k));
+  kws=[...new Set(kws)];
+  if(!kws.length){alert('키워드를 1개 이상 선택해주세요.');return;}
+  const cid=document.getElementById('nv-cid').value.trim(),ak=document.getElementById('nv-key').value.trim(),sk=document.getElementById('nv-secret').value.trim();
+  const btn=document.getElementById('kw-btn'),loading=document.getElementById('kw-loading');
+  btn.disabled=true; loading.classList.add('on');
+  document.getElementById('kw-loading-txt').textContent=`${kws.length}개 키워드 조회 중… (기준: ${dateLabel})`;
+  await new Promise(r=>setTimeout(r,500));
+  if(!cid||!ak||!sk){loading.classList.remove('on');btn.disabled=false;renderTable(buildSampleRows(kws));return;}
+  try{
+    const ts=Date.now().toString(),uri='/keywordstool';
+    const sig=CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA256(`${ts}.GET.${uri}`,sk));
+    const chunks=[]; for(let i=0;i<kws.length;i+=5)chunks.push(kws.slice(i,i+5));
+    let all=[];
+    for(const ch of chunks){
+      const p=new URLSearchParams({hintKeywords:ch.join(','),showDetail:document.getElementById('kw-detail').value});
+      const r=await fetch(`https://api.searchad.naver.com${uri}?${p}`,{headers:{'X-Timestamp':ts,'X-API-KEY':ak,'X-Customer':cid,'X-Signature':sig,'Content-Type':'application/json'}});
+      if(r.ok){const d=await r.json();all=[...all,...(d.keywordList||[])];} else throw new Error();
+    }
+    loading.classList.remove('on');btn.disabled=false;
+    const map={};all.forEach(k=>map[k.relKeyword]={pc:parseInt(k.monthlyPcQcCnt)||0,mob:parseInt(k.monthlyMobileQcCnt)||0});
+    renderTable(kws.map(k=>({kw:k,...lineOf(k),pc:map[k]?.pc||0,mob:map[k]?.mob||0})).map(r=>({...r,total:r.pc+r.mob})).sort((a,b)=>b.total-a.total));
+  }catch(e){loading.classList.remove('on');btn.disabled=false;renderTable(buildSampleRows(kws),true);}
+}
+function buildSampleRows(kws){
+  return kws.map(k=>({kw:k,...lineOf(k),pc:SPC[k]||Math.floor(Math.random()*800+100),mob:SMB[k]||Math.floor(Math.random()*4000+400)})).map(r=>({...r,total:r.pc+r.mob})).sort((a,b)=>b.total-a.total);
+}
+function lineOf(name){
+  for(const[k,v]of Object.entries(LINES)){const p=v.products.find(p=>p.name===name);if(p)return{line:v.label,lineColor:v.color,joie:p.joie,brand:p.brand};}
+  return{line:'기타',lineColor:'#888',joie:false,brand:name};
+}
+
+function renderTable(rows, isSample=false){
+  const maxT=Math.max(...rows.map(r=>r.total),1);
+  const allT=rows.reduce((s,r)=>s+r.total,0);
+  const joieT=rows.filter(r=>r.joie).reduce((s,r)=>s+r.total,0);
+  const joieShare=allT?Math.round(joieT/allT*100):0;
+  const top=rows.filter(r=>!r.joie)[0];
+  const lineName=curLine==='all'?'전체':LINES[curLine]?.label;
+  document.getElementById('result-meta').textContent=`— ${lineName} · ${dateLabel}${isSample?' · 샘플':''}`;
+  document.getElementById('sc-grid').innerHTML=`
+    <div class="sc"><div class="sc-v">${rows.length}</div><div class="sc-l">조회 키워드 수</div></div>
+    <div class="sc"><div class="sc-v">${allT.toLocaleString()}</div><div class="sc-l">전체 월간 검색량</div></div>
+    <div class="sc"><div class="sc-v joie-col">${joieShare}%</div><div class="sc-l">조이 검색 점유율</div></div>
+    <div class="sc"><div class="sc-v" style="font-size:16px">${top?top.kw.split(' ').slice(1).join(' ')||top.kw:'-'}</div><div class="sc-l">1위 경쟁 제품</div></div>`;
+  let html='';
+  csvRows=[['키워드','라인','브랜드','PC 월간','모바일 월간','합계','기준 기간']];
+  rows.forEach(r=>{
+    const pct=Math.round((r.total/maxT)*100);
+    const vol=r.total>15000?`<span class="bdg bdg-h">높음</span>`:r.total>5000?`<span class="bdg bdg-m">중간</span>`:`<span class="bdg bdg-l">낮음</span>`;
+    const bc=BC[r.brand]||'#888';
+    html+=`<tr>
+      <td style="font-weight:500;white-space:nowrap">${r.kw}${r.joie?` <span class="bdg bdg-joie">조이</span>`:''}</td>
+      <td style="white-space:nowrap"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${r.lineColor};margin-right:5px;vertical-align:2px"></span>${r.line}</td>
+      <td style="text-align:right;font-family:var(--mono)">${r.pc.toLocaleString()}</td>
+      <td style="text-align:right;font-family:var(--mono)">${r.mob.toLocaleString()}</td>
+      <td style="text-align:right;font-weight:500;font-family:var(--mono)">${r.total.toLocaleString()}<div class="bar-m"><div class="bar-mf" style="width:${pct}%;background:${bc}"></div></div></td>
+      <td>${vol}</td>
+      <td><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:${bc};flex-shrink:0"></span>${r.brand}</span></td>
+    </tr>`;
+    csvRows.push([r.kw,r.line,r.brand,r.pc,r.mob,r.total,dateLabel]);
+  });
+  document.getElementById('kw-tbody').innerHTML=html;
+  document.getElementById('kw-result').style.display='block';
+
+  // Insight
+  const bd={};
+  rows.forEach(r=>{if(!bd[r.line])bd[r.line]={joie:0,comp:0};if(r.joie)bd[r.line].joie+=r.total;else bd[r.line].comp+=r.total;});
+  let ins='[ 라인별 조이 검색 점유율 ]\n';
+  Object.entries(bd).forEach(([line,d])=>{
+    const sh=d.joie+d.comp>0?Math.round(d.joie/(d.joie+d.comp)*100):0;
+    ins+=`${line.padEnd(8,' ')}: ${'█'.repeat(Math.round(sh/10))}${'░'.repeat(10-Math.round(sh/10))} ${sh}%  (조이 ${d.joie.toLocaleString()} / 경쟁사 ${d.comp.toLocaleString()})\n`;
+  });
+  const minL=Object.entries(bd).sort((a,b)=>a[1].joie/(a[1].joie+a[1].comp+1)-b[1].joie/(b[1].joie+b[1].comp+1))[0];
+  if(minL)ins+=`\n▶ 개선 시급: ${minL[0]} 라인 — 네이버 광고 · SEO · 맘카페 콘텐츠 강화 권장`;
+  ins+=`\n▶ 전체 점유율 ${joieShare}% (기준: ${dateLabel})`;
+  const ib=document.getElementById('insight-box');
+  ib.textContent=ins; ib.style.display='block';
+  kwForAI=`【카시트 라인별 네이버 월간 검색량 — ${dateLabel}】\n`+rows.map(r=>`[${r.line}] ${r.kw}(${r.brand}): PC ${r.pc.toLocaleString()} + 모바일 ${r.mob.toLocaleString()} = ${r.total.toLocaleString()}회`).join('\n');
+}
+
+function copyCSV(){
+  if(!csvRows.length){alert('먼저 검색량을 조회해주세요.');return;}
+  navigator.clipboard.writeText(csvRows.map(r=>r.join('\t')).join('\n'));
+  const btn=event.target;btn.textContent='복사됨!';setTimeout(()=>btn.textContent='CSV 복사',1500);
+}
+function sendToAI(){
+  if(!kwForAI){alert('먼저 검색량을 조회해주세요.');return;}
+  const cur=document.getElementById('ai-input').value;
+  document.getElementById('ai-input').value=(cur?cur+'\n\n':'')+kwForAI;
+  switchPanel('analysis',document.querySelector('[data-panel=analysis]'));
+}
+
+/* ─────────────────────────────────────────
+   AI ANALYSIS
+───────────────────────────────────────── */
+function selMode(el,m){document.querySelectorAll('.mp').forEach(p=>p.classList.remove('on'));el.classList.add('on');curMode=m;}
+function pasteKw(){if(!kwForAI){alert('먼저 키워드 탭에서 조회해주세요.');return;}const c=document.getElementById('ai-input').value;document.getElementById('ai-input').value=(c?c+'\n\n':'')+kwForAI;}
+function clearAI(){document.getElementById('ai-input').value='';document.getElementById('ai-result').style.display='none';}
+function fillSample(){
+  document.getElementById('ai-input').value=`브라이텍스: 키드픽스 프로 520,000원 신규 출시, 절충형 유모차 M 출시, 인스타 @britax_korea 27K
+싸이벡스: 아노리스T2 ADAC 0.9점 에어백 카시트, 폭스바겐 협업, 인스타 @cybex_korea 33K
+다이치: 원픽스360 시즌3 에어 i-Size 출시, 대통령 표창 수상, 인스타 @daiichi_kr 26K
+시크: NEW 제로맥스360E 695,000원 5/26 론칭(-16%), 신생아~12세 전연령
+맥시코시: 미카360 슬라이드텍 신규컬러 970,000원, 슬라이딩 독점 기술 강조
+
+【카시트 라인별 네이버 월간 검색량 — ${dateLabel||'기준일 미설정'}】
+[컨버터블] 다이치 원픽스360(다이치): PC 3,400 + 모바일 22,400 = 25,800회
+[컨버터블] 싸이벡스 제로나T(싸이벡스): PC 2,100 + 모바일 11,800 = 13,900회
+[컨버터블] 브라이텍스 듀얼픽스(브라이텍스): PC 1,800 + 모바일 9,600 = 11,400회
+[컨버터블] 조이 아이스핀360(조이): PC 820 + 모바일 4,200 = 5,020회
+[토들러] 다이치 브이가드(다이치): PC 1,200 + 모바일 7,200 = 8,400회
+[토들러] 맥시코시 타이탄 프로(맥시코시): PC 920 + 모바일 5,100 = 6,020회
+[토들러] 조이 아이어바나(조이): PC 310 + 모바일 1,600 = 1,910회
+[주니어] 싸이벡스 솔루션T(싸이벡스): PC 1,100 + 모바일 6,200 = 7,300회
+[주니어] 브라이텍스 키드픽스(브라이텍스): PC 760 + 모바일 4,100 = 4,860회
+[주니어] 조이 아이트래버(조이): PC 190 + 모바일 980 = 1,170회
+[올인원] 시크 제로맥스360(시크): PC 1,600 + 모바일 9,200 = 10,800회
+[올인원] 조이 아이피벗그로우(조이): PC 580 + 모바일 3,100 = 3,680회`;
+}
+
+const PROMPTS={
+  weekly:(i,d,f)=>`당신은 조이(Joie Korea) 수석 마케팅 전략 분석가입니다. 조이는 카시트·유모차·인홈 육아용품 전문 영국 글로벌 브랜드, 국내 에이원 유통.\n\n${d} 기준 수집 정보:\n${i}${f?'\n\n추가 포커스: '+f:''}\n\n【이번 주 핵심 동향 요약 (브랜드별 1~2줄)】\n\n【카시트 라인별 경쟁 현황 요약】\n컨버터블 / 토들러 / 주니어 / 올인원 각 1줄\n\n【키워드 검색량으로 본 조이 경쟁력 평가】\n라인별 점유율과 개선 시급 라인\n\n【위협 TOP 3 (근거 포함)】\n\n【기회 TOP 3】\n\n【즉시 실행 권고사항 (우선순위 순, 채널 명시)】`,
+  line:(i,d,f)=>`당신은 조이(Joie Korea) 카시트 라인 전략 전문가입니다.\n\n${d} 기준:\n${i}${f?'\n\n추가 포커스: '+f:''}\n\n【컨버터블 카시트 라인 경쟁 분석】\n경쟁 제품·검색량 비교·조이 아이스핀360 포지셔닝·대응 전략\n\n【토들러 카시트 라인 경쟁 분석】\n경쟁 제품·검색량 비교·조이 아이어바나 포지셔닝·대응 전략\n\n【주니어 카시트 라인 경쟁 분석】\n경쟁 제품·검색량 비교·조이 아이트래버·듀알로 포지셔닝·대응 전략\n\n【올인원 카시트 라인 경쟁 분석】\n경쟁 제품·검색량 비교·조이 아이피벗그로우 포지셔닝·대응 전략\n\n【라인별 마케팅 투자 우선순위 (검색량 기반)】`,
+  keyword:(i,d,f)=>`당신은 조이(Joie Korea) 디지털 마케팅·SEO 전략가입니다.\n\n${d} 기준:\n${i}${f?'\n\n추가 포커스: '+f:''}\n\n【카시트 라인별 조이 검색 점유율 분석】\n\n【검색량 하위 조이 제품 공략 키워드 제안 (라인별)】\n\n【경쟁사 대비 격차 큰 라인 네이버 광고 전략】\n입찰 키워드·예산 배분·광고 소재 방향\n\n【라인별 SEO·블로그·맘카페 콘텐츠 전략 (각 3가지)】\n\n【30일 키워드 마케팅 실행 플랜】`,
+  newproduct:(i,d,f)=>`당신은 조이(Joie Korea) 신제품 마케팅 전략가입니다.\n\n${d} 기준:\n${i}${f?'\n\n추가 포커스: '+f:''}\n\n【경쟁사 신제품 라인별 정리 (제품명·가격·특징)】\n\n【검색량 기반 소비자 관심도 분석 (라인별)】\n\n【조이 라인별 직접 경쟁 포지셔닝 비교】\n\n【라인별 조이 대응 전략 (가격·기능·마케팅)】\n\n【소비자에게 전달할 조이 차별화 메시지 (라인별)】`,
+  promo:(i,d,f)=>`당신은 조이(Joie Korea) 프로모션 전략가입니다.\n\n${d} 기준:\n${i}${f?'\n\n추가 포커스: '+f:''}\n\n【경쟁사 프로모션 현황 (이벤트명·혜택·채널·기간)】\n\n【라인별 가격 경쟁력·프로모션 위협도 분석】\n\n【조이 대응 프로모션 제안 (라인별 3가지, 기간·채널·혜택)】\n\n【소비자 이탈 위험 포인트와 방어 전략】`,
+  sns:(i,d,f)=>`당신은 조이(Joie Korea) SNS 마케팅 전략가입니다.\n\n${d} 기준:\n${i}${f?'\n\n추가 포커스: '+f:''}\n\n【경쟁사 SNS 현황 (팔로워·콘텐츠·메시지)】\n\n【검색량 기반 라인별 콘텐츠 기회 분석】\n\n【조이 인스타그램 라인별 콘텐츠 캘린더 (4주 플랜)】\n\n【인스타그램 팔로워 성장 액션플랜 30일】`
+};
+
+const MODE_NAMES={weekly:'주간 동향',line:'라인별 경쟁',keyword:'키워드 전략',newproduct:'신제품 대응',promo:'프로모션 분석',sns:'SNS 전략'};
+
+async function runAI(){
+  const input=document.getElementById('ai-input').value.trim();
+  if(!input){alert('분석할 정보를 입력해주세요.');return;}
+  const date=document.getElementById('ai-date').value||dateLabel;
+  const focus=document.getElementById('ai-focus').value;
+  const prompt=PROMPTS[curMode](input,date,focus);
+  const btn=document.getElementById('ai-btn'),loading=document.getElementById('ai-loading');
+  const result=document.getElementById('ai-result'),content=document.getElementById('ai-res-content');
+  btn.disabled=true;loading.classList.add('on');
+  document.getElementById('ai-loading-txt').textContent=`Claude가 ${MODE_NAMES[curMode]} 리포트를 작성하고 있습니다…`;
+  result.style.display='block';content.textContent='';
+  document.getElementById('ai-res-label').textContent=MODE_NAMES[curMode]+' · '+date;
+  const start=Date.now();
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,stream:true,messages:[{role:'user',content:prompt}]})});
+    let full='';
+    const reader=resp.body.getReader(),dec=new TextDecoder();
+    while(true){
+      const{done,value}=await reader.read();if(done)break;
+      for(const line of dec.decode(value,{stream:true}).split('\n')){
+        if(line.startsWith('data: ')){try{const p=JSON.parse(line.slice(6));if(p.type==='content_block_delta'&&p.delta?.text){full+=p.delta.text;content.textContent=full;}}catch(e){}}
+      }
+    }
+    document.getElementById('ai-res-time').textContent=((Date.now()-start)/1000).toFixed(1)+'초';
+  }catch(e){content.textContent='오류: '+e.message;}
+  finally{btn.disabled=false;loading.classList.remove('on');}
+}
+
+/* ─────────────────────────────────────────
+   PYTHON SCRIPT
+───────────────────────────────────────── */
+function genPython(){
+  const cid=document.getElementById('nv-cid').value.trim()||'YOUR_CUSTOMER_ID';
+  const key=document.getElementById('nv-key').value.trim()||'YOUR_ACCESS_LICENSE';
+  const sec=document.getElementById('nv-secret').value.trim()||'YOUR_SECRET_KEY';
+  const allKws=[...Object.values(LINES).flatMap(v=>v.products.map(p=>p.name))];
+  const code=`import time, hmac, hashlib, base64, requests, csv
+
+CUSTOMER_ID = '${cid}'
+API_KEY     = '${key}'
+SECRET_KEY  = '${sec}'
+
+KEYWORDS_BY_LINE = {
+    '컨버터블': ['조이 아이스핀360','싸이벡스 제로나T','다이치 원픽스360','브라이텍스 듀얼픽스','순성 우노에어'],
+    '토들러':   ['조이 아이어바나','브라이텍스 어드밴스픽스','시크 맥스아이보스','맥시코시 타이탄 프로','다이치 브이가드','순성 브릭프로'],
+    '주니어':   ['조이 아이트래버','조이 듀알로','순성 제나주니어','브라이텍스 키드픽스','시크 맥스아이진2','싸이벡스 솔루션T'],
+    '올인원':   ['조이 아이피벗그로우','시크 제로맥스360','다이치 블리바360','다이치 트웰브360i','다이치 올인원360','순성 우노 올인원','ABC디자인 버디'],
+}
+
+def sign(timestamp, method, uri):
+    msg = f"{timestamp}.{method}.{uri}".encode()
+    return base64.b64encode(hmac.new(SECRET_KEY.encode(), msg, hashlib.sha256).digest()).decode()
+
+def get_kwstats(keywords):
+    uri, ts = '/keywordstool', str(int(time.time() * 1000))
+    headers = {'X-Timestamp': ts, 'X-API-KEY': API_KEY, 'X-Customer': CUSTOMER_ID,
+               'X-Signature': sign(ts, 'GET', uri), 'Content-Type': 'application/json'}
+    params = {'hintKeywords': ','.join(keywords), 'showDetail': '1'}
+    r = requests.get('https://api.searchad.naver.com' + uri, params=params, headers=headers)
+    return {k['relKeyword']: k for k in r.json().get('keywordList', [])}
+
+results = []
+for line, kws in KEYWORDS_BY_LINE.items():
+    chunks = [kws[i:i+5] for i in range(0, len(kws), 5)]
+    for chunk in chunks:
+        data = get_kwstats(chunk)
+        for kw in chunk:
+            d = data.get(kw, {})
+            pc  = int(d.get('monthlyPcQcCnt', 0))
+            mob = int(d.get('monthlyMobileQcCnt', 0))
+            results.append({'라인': line, '키워드': kw, 'PC': pc, '모바일': mob, '합계': pc+mob})
+        time.sleep(0.3)  # rate limit
+
+results.sort(key=lambda x: -x['합계'])
+with open('joie_keyword_stats.csv', 'w', newline='', encoding='utf-8-sig') as f:
+    writer = csv.DictWriter(f, fieldnames=['라인','키워드','PC','모바일','합계'])
+    writer.writeheader(); writer.writerows(results)
+
+print(f"완료! joie_keyword_stats.csv 저장됨 ({len(results)}개 키워드)")
+for r in results:
+    print(f"[{r['라인']}] {r['키워드']}: PC {r['PC']:,} + 모바일 {r['모바일']:,} = {r['합계']:,}")`;
+  document.getElementById('python-code').textContent=code;
+  document.getElementById('python-code').style.display='block';
+  document.getElementById('py-copy-btn').style.display='inline-block';
+}
+function copyPython(){
+  navigator.clipboard.writeText(document.getElementById('python-code').textContent);
+  const btn=document.getElementById('py-copy-btn');btn.textContent='복사됨!';setTimeout(()=>btn.textContent='코드 복사',1500);
+}
+
+/* ─────────────────────────────────────────
+   GUIDE TABLE
+───────────────────────────────────────── */
+function buildGuideTable(){
+  let html=`<table class="kw-tbl" style="min-width:420px"><thead><tr><th>라인</th><th>제품명</th><th>브랜드</th><th>구분</th></tr></thead><tbody>`;
+  Object.entries(LINES).forEach(([,v])=>v.products.forEach(p=>{
+    html+=`<tr><td><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${v.color};margin-right:5px;vertical-align:2px"></span>${v.label}</td><td style="font-weight:500">${p.name}</td><td><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:${BC[p.brand]||'#888'}"></span>${p.brand}</span></td><td>${p.joie?'<span class="bdg bdg-joie">조이</span>':''}</td></tr>`;
+  }));
+  document.getElementById('guide-table').innerHTML=html+'</tbody></table>';
+}
+</script>
+</body>
+</html>
+HTMLEOF
+echo "Done"
+출력
+
+Done
